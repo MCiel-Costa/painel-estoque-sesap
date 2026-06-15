@@ -81,6 +81,25 @@ try:
     from selenium.webdriver.chrome.options import Options
     chrome_options = Options()
     
+    # Estratégia de carregamento rápido: prossegue assim que o HTML (DOM) estiver pronto,
+    # sem ficar preso aguardando imagens lentas, anúncios ou scripts de terceiros.
+    chrome_options.page_load_strategy = 'eager'
+    
+    # Argumentos de estabilização do navegador
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-infobars")
+    chrome_options.add_argument("--password-store=basic")
+    chrome_options.add_argument("--incognito")
+    
+    # Desabilita o gerenciador de senhas do Chrome para evitar diálogos de salvamento que travam o renderizador
+    prefs = {
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.password_manager_leak_detection": False
+    }
+    chrome_options.add_experimental_option("prefs", prefs)
+    
     # Executa headless se estiver no GitHub Actions ou se a variável de ambiente solicitar
     is_github_actions = os.environ.get("GITHUB_ACTIONS", "false").lower() == "true"
     run_headless = os.environ.get("RUN_HEADLESS", "true").lower() == "true" or is_github_actions
@@ -93,13 +112,17 @@ try:
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
+    from selenium.webdriver.remote.remote_connection import RemoteConnection
+    # Configura o timeout da conexão HTTP interna com o ChromeDriver para 600 segundos (10 minutos)
+    # IMPORTANTE: Deve ser definido no nível da classe ANTES da criação do navegador (webdriver.Chrome)
+    # para que o cliente HTTP (urllib3) seja inicializado com o timeout correto.
+    RemoteConnection.set_timeout(600)
+
     servico = ChromeService(ChromeDriverManager().install())
     navegador = webdriver.Chrome(service=servico, options=chrome_options)
     
-    # Configura timeouts para evitar erros de HTTP read timeout com o ChromeDriver
-    # quando a geração de relatórios no SIPAC for muito lenta (padrão é 120s)
-    navegador.command_executor.set_timeout(300)
-    navegador.set_page_load_timeout(300)
+    # Define o timeout de carregamento da página do Chrome para 600 segundos (10 minutos)
+    navegador.set_page_load_timeout(600)
     
     wait = WebDriverWait(navegador, 60)
     
