@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estoque SESAP - Dashboard de Inventário</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- ApexCharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- CryptoJS CDN para decodificação AES-256 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- CSS Customizado -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-container" class="login-container">
+        <div class="login-card">
+            <div class="login-icon">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h2>Acesso Restrito</h2>
+            <p>Insira a senha do dashboard para carregar os dados de inventário da SESAP.</p>
+            <form id="login-form" onsubmit="event.preventDefault(); tentarAcesso();">
+                <div class="input-group">
+                    <i class="fa-solid fa-key input-icon"></i>
+                    <input type="password" id="dashboard-password" placeholder="Senha do Dashboard" required>
+                </div>
+                <button type="submit" id="login-btn">Entrar <i class="fa-solid fa-arrow-right"></i></button>
+            </form>
+            <div id="error-msg" class="error-msg"></div>
+        </div>
+    </div>
+
+    <!-- TELA DO DASHBOARD (Oculta por padrão) -->
+    <div id="dashboard-container" class="dashboard-container" style="display: none;">
+        <!-- Cabeçalho -->
+        <header class="dashboard-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fa-solid fa-boxes-stacked logo-icon"></i>
+                    <div>
+                        <h1>Estoque SESAP</h1>
+                        <p>Controle e Inventário de Materiais</p>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <span class="refresh-indicator"><i class="fa-solid fa-circle-check"></i> Dados Criptografados Ativos</span>
+                <button id="logout-btn" onclick="sair();" class="logout-btn">
+                    <i class="fa-solid fa-right-from-bracket"></i> Sair
+                </button>
+            </div>
+        </header>
+
+        <!-- KPI Cards Row -->
+        <section class="kpi-row">
+            <div class="kpi-card text-gradient-value">
+                <div class="kpi-info">
+                    <span class="kpi-label">Valor Total do Estoque</span>
+                    <h3 id="kpi-total-valor">R$ 0,00</h3>
+                </div>
+                <div class="kpi-icon-wrapper val-color">
+                    <i class="fa-solid fa-dollar-sign"></i>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-info">
+                    <span class="kpi-label">Itens Cadastrados</span>
+                    <h3 id="kpi-total-itens">0</h3>
+                </div>
+                <div class="kpi-icon-wrapper items-color">
+                    <i class="fa-solid fa-barcode"></i>
+                </div>
+            </div>
+            <div class="kpi-card warning">
+                <div class="kpi-info">
+                    <span class="kpi-label">Itens Zerados ou Críticos</span>
+                    <h3 id="kpi-itens-zerados">0</h3>
+                </div>
+                <div class="kpi-icon-wrapper zer-color">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Seção de Gráficos -->
+        <section class="charts-section">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3><i class="fa-solid fa-chart-bar"></i> Valor de Estoque por Unidade (R$)</h3>
+                </div>
+                <div id="chart-unidades" class="chart-body">
+                    <!-- ApexCharts renderiza aqui -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Seção de Filtros e Dados -->
+        <section class="data-section">
+            <div class="filters-card">
+                <div class="filters-header">
+                    <h3><i class="fa-solid fa-filter"></i> Filtros e Consulta</h3>
+                </div>
+                <div class="filters-body">
+                    <!-- Seletor de Unidades -->
+                    <div class="filter-group">
+                        <label for="filter-unidade"><i class="fa-solid fa-building"></i> Filtrar por Unidade</label>
+                        <select id="filter-unidade" onchange="aplicarFiltros();">
+                            <option value="TODAS">Todas as Unidades</option>
+                        </select>
+                    </div>
+                    <!-- Campo de Busca por Descrição / Código -->
+                    <div class="filter-group flex-grow">
+                        <label for="search-material"><i class="fa-solid fa-magnifying-glass"></i> Buscar Material</label>
+                        <input type="text" id="search-material" placeholder="Digite o código ou nome do material..." oninput="aplicarFiltros();">
+                    </div>
+                    <!-- Checkbox de Estoque Baixo/Zerado -->
+                    <div class="filter-group-checkbox">
+                        <input type="checkbox" id="filter-zerados" onchange="aplicarFiltros();">
+                        <label for="filter-zerados">
+                            <i class="fa-solid fa-circle-exclamation text-yellow"></i> Apenas Zerados/Críticos
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela de Dados -->
+            <div class="table-card">
+                <div class="table-header">
+                    <div class="table-title-group">
+                        <h3><i class="fa-solid fa-list-check"></i> Materiais em Estoque</h3>
+                        <span id="results-count" class="badge">0 itens encontrados</span>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="materials-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descrição / Denominação</th>
+                                <th>Unid. Medida</th>
+                                <th>Unidade</th>
+                                <th>Saldo</th>
+                                <th>Preço Unitário</th>
+                                <th>Valor Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- Inserido dinamicamente via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Script Principal -->
+    <script src="app.js"></script>
+</body>
+</html>
