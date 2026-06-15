@@ -112,11 +112,19 @@ try:
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
-    from selenium.webdriver.remote.remote_connection import RemoteConnection
-    # Configura o timeout da conexão HTTP interna com o ChromeDriver para 600 segundos (10 minutos)
-    # IMPORTANTE: Deve ser definido no nível da classe ANTES da criação do navegador (webdriver.Chrome)
-    # para que o cliente HTTP (urllib3) seja inicializado com o timeout correto.
-    RemoteConnection.set_timeout(600)
+    # Ajusta o timeout da conexão HTTP interna com o ChromeDriver para 600 segundos (10 minutos)
+    # de forma robusta e compatível com todas as versões do Selenium (antigas e novas),
+    # evitando o método 'set_timeout' que possui bugs internos em algumas versões.
+    try:
+        from selenium.webdriver.remote.remote_connection import RemoteConnection
+        from selenium.webdriver.remote.client_config import ClientConfig
+        RemoteConnection._client_config = ClientConfig(timeout=600)
+    except Exception:
+        try:
+            from selenium.webdriver.remote.remote_connection import RemoteConnection
+            RemoteConnection.set_timeout(600)
+        except Exception:
+            pass
 
     servico = ChromeService(ChromeDriverManager().install())
     navegador = webdriver.Chrome(service=servico, options=chrome_options)
