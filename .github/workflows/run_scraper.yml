@@ -1,0 +1,52 @@
+name: Atualização Diária - Robô SIPAC
+
+# Executa todos os dias às 05:00 da manhã (horário de Brasília/Natal: UTC-3)
+# E também permite execução manual (Workflow Dispatch)
+on:
+  schedule:
+    - cron: '0 8 * * *' # 08:00 UTC = 05:00 UTC-3
+  workflow_dispatch:
+
+# Permissões necessárias para que a Action faça commit dos arquivos atualizados de volta ao repositório
+permissions:
+  contents: write
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Faz o checkout do código do repositório
+    - name: Checkout Código
+      uses: actions/checkout@v4
+
+    # 2. Configura a versão correta do Python
+    - name: Configurar Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    # 3. Instala as dependências a partir do requirements.txt
+    - name: Instalar Dependências
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    # 4. Executa o Scraper injetando as credenciais seguras do GitHub Secrets
+    - name: Executar Scraper SIPAC
+      env:
+        SIPAC_USUARIO: ${{ secrets.SIPAC_USUARIO }}
+        SIPAC_SENHA: ${{ secrets.SIPAC_SENHA }}
+        DASHBOARD_SENHA: ${{ secrets.DASHBOARD_SENHA }}
+        RUN_HEADLESS: "true"
+      run: python robo_inventario.py
+
+    # 5. Salva e envia os arquivos atualizados (dados.json e Excel) de volta para o repositório
+    - name: Commit e Push dos Dados Atualizados
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add dados.json relatorio_inventario_CONSOLIDADO_MATRIZ.xlsx || true
+        # Só realiza o commit se houver modificações reais
+        git diff-index --quiet HEAD || (git commit -m "Automação: Atualização diária do estoque [skip ci]" && git push)
