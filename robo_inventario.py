@@ -95,6 +95,12 @@ try:
     
     servico = ChromeService(ChromeDriverManager().install())
     navegador = webdriver.Chrome(service=servico, options=chrome_options)
+    
+    # Configura timeouts para evitar erros de HTTP read timeout com o ChromeDriver
+    # quando a geração de relatórios no SIPAC for muito lenta (padrão é 120s)
+    navegador.command_executor.set_timeout(300)
+    navegador.set_page_load_timeout(300)
+    
     wait = WebDriverWait(navegador, 60)
     
     print("Acessando a página de login...")
